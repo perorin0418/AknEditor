@@ -6,6 +6,7 @@ import java.awt.Font;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
 import jsyntaxpane.DefaultSyntaxKit;
@@ -19,6 +20,7 @@ public class Sample extends JFrame {
 
         setTitle("jsyntaxpane");
 
+
         final JEditorPane codeEditor = new JEditorPane();
         JScrollPane scrPane = new JScrollPane(codeEditor);
 
@@ -29,7 +31,11 @@ public class Sample extends JFrame {
         // デモ用に大きめのフォントサイズを指定
         Font font = codeEditor.getFont();
         codeEditor.setFont(new Font(font.getName(), font.getStyle(), 16));
-        getContentPane().add(scrPane);
+
+        JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+        tabbedPane.addTab("New tab", null, scrPane, null);
+
+        getContentPane().add(tabbedPane);
     }
 
     private static void startup() {
