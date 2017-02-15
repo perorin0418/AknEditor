@@ -1,13 +1,16 @@
 package org.net.perorin.aknEditor.view;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.util.Arrays;
 
+import javax.swing.Box;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
@@ -18,6 +21,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
+import javax.swing.JToolBar;
 import javax.swing.JTree;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
@@ -52,8 +56,16 @@ public class view {
 	private final String iconRedoPath = "./META-INF/redo.png";
 	private final String iconSelectAllPath = "./META-INF/select-all.png";
 	private final String iconUndoPath = "./META-INF/undo.png";
-
-
+	private final String iconSavePath = "./META-INF/Save.png";
+	private final String iconSaveAsPath = "./META-INF/Save-as-icon.png";
+	private final String iconSaveAllPath = "./META-INF/Save-all.png";
+	private final String iconNewPath = "./META-INF/ModernXP-26-Filetype-New-icon.png";
+	private final String iconOpenPath = "./META-INF/open-file-icon.png";
+	private final String iconClosePath = "./META-INF/close.png";
+	private final String iconCloseAllPath = "./META-INF/close-all.png";
+	private final String iconExitPath = "./META-INF/Close-2-icon.png";
+	private final String iconStartPath = "./META-INF/Play-1-Pressed-icon.png";
+	private final String iconStopPath = "./META-INF/Stop-icon.png";
 
 	/**
 	 * Launch the application.
@@ -145,36 +157,50 @@ public class view {
 		menuFile.setFont(sysFont);
 		menuBar.add(menuFile);
 
-		JMenuItem menuItemNew = new JMenuItem("新規");
+		JMenuItem menuItemNew = new JMenuItem("新規ファイル");
 		menuItemNew.setFont(sysFont);
+		menuItemNew.setIcon(new ImageIcon(iconNewPath));
 		menuFile.add(menuItemNew);
 
 		JMenuItem menuItemOpenFile = new JMenuItem("ファイルを開く");
 		menuItemOpenFile.setFont(sysFont);
+		menuItemOpenFile.setIcon(new ImageIcon(iconOpenPath));
 		menuFile.add(menuItemOpenFile);
+
+		menuFile.add(Box.createRigidArea(new Dimension(5, 5)));
 
 		JMenuItem menuItemClose = new JMenuItem("閉じる");
 		menuItemClose.setFont(sysFont);
+		menuItemClose.setIcon(new ImageIcon(iconClosePath));
 		menuFile.add(menuItemClose);
 
 		JMenuItem menuItemAllClose = new JMenuItem("すべて閉じる");
 		menuItemAllClose.setFont(sysFont);
+		menuItemAllClose.setIcon(new ImageIcon(iconCloseAllPath));
 		menuFile.add(menuItemAllClose);
+
+		menuFile.add(Box.createRigidArea(new Dimension(5, 5)));
 
 		JMenuItem menuItemSave = new JMenuItem("保存");
 		menuItemSave.setFont(sysFont);
+		menuItemSave.setIcon(new ImageIcon(iconSavePath));
 		menuFile.add(menuItemSave);
 
 		JMenuItem menuItemSaveAs = new JMenuItem("名前を付けて保存");
 		menuItemSaveAs.setFont(sysFont);
+		menuItemSaveAs.setIcon(new ImageIcon(iconSaveAsPath));
 		menuFile.add(menuItemSaveAs);
 
 		JMenuItem menuItemAllSave = new JMenuItem("すべて保存");
 		menuItemAllSave.setFont(sysFont);
+		menuItemAllSave.setIcon(new ImageIcon(iconSaveAllPath));
 		menuFile.add(menuItemAllSave);
+
+		menuFile.add(Box.createRigidArea(new Dimension(5, 5)));
 
 		JMenuItem menuItemExit = new JMenuItem("終了");
 		menuItemExit.setFont(sysFont);
+		menuItemExit.setIcon(new ImageIcon(iconExitPath));
 		menuFile.add(menuItemExit);
 
 		JMenu menuEdit = new JMenu("編集");
@@ -191,6 +217,8 @@ public class view {
 		menuItemRedo.setIcon(new ImageIcon(iconRedoPath));
 		menuEdit.add(menuItemRedo);
 
+		menuEdit.add(Box.createRigidArea(new Dimension(5, 5)));
+
 		JMenuItem menuItemCut = new JMenuItem("切り取り");
 		menuItemCut.setFont(sysFont);
 		menuItemCut.setIcon(new ImageIcon(iconCutPath));
@@ -205,6 +233,8 @@ public class view {
 		menuItemPaste.setFont(sysFont);
 		menuItemPaste.setIcon(new ImageIcon(iconPastePath));
 		menuEdit.add(menuItemPaste);
+
+		menuEdit.add(Box.createRigidArea(new Dimension(5, 5)));
 
 		JMenuItem menuItemAllSelect = new JMenuItem("すべて選択");
 		menuItemAllSelect.setFont(sysFont);
@@ -254,6 +284,87 @@ public class view {
 	private void initTool() {
 		JPanel toolPanel = new JPanel();
 		frame.getContentPane().add(toolPanel, BorderLayout.NORTH);
+		toolPanel.setLayout(new BorderLayout(0, 0));
+
+		JToolBar toolBar = new JToolBar();
+		toolBar.setFloatable(false);
+		toolPanel.add(toolBar);
+
+		JButton btnNew = new JButton(new ImageIcon(iconNewPath));
+		btnNew.setToolTipText("新規ファイル");
+		toolBar.add(btnNew);
+
+		JButton btnOpen = new JButton(new ImageIcon(iconOpenPath));
+		btnOpen.setToolTipText("ファイルを開く");
+		toolBar.add(btnOpen);
+
+		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
+
+		JButton btnClose = new JButton(new ImageIcon(iconClosePath));
+		btnClose.setToolTipText("閉じる");
+		toolBar.add(btnClose);
+
+		JButton btnCloseAll = new JButton(new ImageIcon(iconCloseAllPath));
+		btnCloseAll.setToolTipText("すべて閉じる");
+		toolBar.add(btnCloseAll);
+
+		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
+
+		JButton btnSave = new JButton(new ImageIcon(iconSavePath));
+		btnSave.setToolTipText("保存");
+		toolBar.add(btnSave);
+
+		JButton btnSaveAs = new JButton(new ImageIcon(iconSaveAsPath));
+		btnSaveAs.setToolTipText("名前を付けて保存");
+		toolBar.add(btnSaveAs);
+
+		JButton btnSaveAll = new JButton(new ImageIcon(iconSaveAllPath));
+		btnSaveAll.setToolTipText("すべて保存");
+		toolBar.add(btnSaveAll);
+
+		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
+
+		JButton btnUndo = new JButton(new ImageIcon(iconUndoPath));
+		btnUndo.setToolTipText("元に戻す");
+		toolBar.add(btnUndo);
+
+		JButton btnRedo = new JButton(new ImageIcon(iconRedoPath));
+		btnRedo.setToolTipText("やり直す");
+		toolBar.add(btnRedo);
+
+		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
+
+		JButton btnCut = new JButton(new ImageIcon(iconCutPath));
+		btnCut.setToolTipText("切り取り");
+		toolBar.add(btnCut);
+
+		JButton btnCopy = new JButton(new ImageIcon(iconCopyPath));
+		btnCopy.setToolTipText("コピー");
+		toolBar.add(btnCopy);
+
+		JButton btnPaste = new JButton(new ImageIcon(iconPastePath));
+		btnPaste.setToolTipText("貼り付け");
+		toolBar.add(btnPaste);
+
+		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
+
+		JButton btnSelectAll = new JButton(new ImageIcon(iconSelectAllPath));
+		btnSelectAll.setToolTipText("すべて選択");
+		toolBar.add(btnSelectAll);
+
+		JButton btnFind = new JButton(new ImageIcon(iconFindPath));
+		btnFind.setToolTipText("検索/置き換え");
+		toolBar.add(btnFind);
+
+		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
+
+		JButton btnStart = new JButton(new ImageIcon(iconStartPath));
+		btnStart.setToolTipText("実行");
+		toolBar.add(btnStart);
+
+		JButton btnStop = new JButton(new ImageIcon(iconStopPath));
+		btnStop.setToolTipText("停止");
+		toolBar.add(btnStop);
 	}
 
 	private void initEditor() {
