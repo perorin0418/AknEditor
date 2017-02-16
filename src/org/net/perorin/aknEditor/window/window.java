@@ -1,11 +1,15 @@
-package org.net.perorin.aknEditor.view;
+package org.net.perorin.aknEditor.window;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 
 import javax.swing.Box;
@@ -23,25 +27,34 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JToolBar;
 import javax.swing.JTree;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 
 import org.net.perorin.aknEditor.etc.FileTreeCellRenderer;
 import org.net.perorin.aknEditor.etc.FolderWillExpandListener;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jsyntaxpane.DefaultSyntaxKit;
 
-public class view {
+public class window {
 
 	private JFrame frame;
 	private Font sysFont;
 	private Font edtFont;
 	private Font conFont;
+	private JTabbedPane tabbedPane;
 	private JSplitPane splitPane_HORIZONAL;
 	private JSplitPane splitPane_VERTICAL;
+
+	private JsonNode json;
 
 	private final String TITLE = "茜ちゃんがJava教えてくれるってよ";
 
@@ -74,7 +87,7 @@ public class view {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					view window = new view();
+					window window = new window();
 					window.frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -86,7 +99,7 @@ public class view {
 	/**
 	 * Create the application.
 	 */
-	public view() {
+	public window() {
 		initialize();
 	}
 
@@ -123,6 +136,14 @@ public class view {
 		// コンソールフォントの設定
 		conFont = new Font("メイリオ", Font.PLAIN, 15);
 
+		try {
+			json = new ObjectMapper().readTree(new File("./META-INF/data.json"));
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
 		// フレーム
 		frame = new JFrame();
 		frame.setBounds(100, 100, 1600, 900);
@@ -137,6 +158,8 @@ public class view {
 		initEditor();
 		initDirectory();
 		initConsole();
+
+		initDataSet();
 	}
 
 	private void initSplitPane() {
@@ -262,7 +285,7 @@ public class view {
 		directoryPanel.setLayout(new BorderLayout(0, 0));
 
 		FileSystemView fileSystemView = FileSystemView.getFileSystemView();
-		DefaultMutableTreeNode root = new DefaultMutableTreeNode();
+		DefaultMutableTreeNode root = new DefaultMutableTreeNode(workSpacePath);
 		DefaultTreeModel treeModel = new DefaultTreeModel(root);
 		for (File fileSystemRoot : fileSystemView.getFiles(workSpacePath, true)) {
 			DefaultMutableTreeNode node = new DefaultMutableTreeNode(fileSystemRoot);
@@ -278,6 +301,17 @@ public class view {
 		tree.setFont(sysFont);
 		tree.addTreeWillExpandListener(new FolderWillExpandListener(fileSystemView));
 		tree.setCellRenderer(new FileTreeCellRenderer(tree.getCellRenderer(), fileSystemView));
+		tree.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				super.mouseClicked(e);
+				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
+					JTree tree = (JTree) e.getSource();
+					TreePath path = tree.getPathForLocation(e.getX(), e.getY());
+					openEditor(new File(path.getLastPathComponent().toString()));
+				}
+			}
+		});
 		directoryPanel.add(new JScrollPane(tree), BorderLayout.CENTER);
 	}
 
@@ -372,18 +406,20 @@ public class view {
 		editorPanel.setLayout(new BorderLayout(0, 0));
 		splitPane_HORIZONAL.setLeftComponent(editorPanel);
 
-		JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
 		editorPanel.add(tabbedPane, BorderLayout.CENTER);
 
 		JEditorPane editorTextArea = new JEditorPane();
 		editorTextArea.setBounds(editorPanel.getBounds());
 
 		JScrollPane editorTextAreaScroll = new JScrollPane(editorTextArea);
+		editorTextAreaScroll.setName("test");
 		editorTextAreaScroll.setBounds(editorPanel.getBounds());
 
 		editorTextArea.setContentType("text/java");
 		editorTextArea.setFont(edtFont);
 
+		// 暫定作成
 		tabbedPane.addTab("New tab", null, editorTextAreaScroll, null);
 	}
 
@@ -399,6 +435,33 @@ public class view {
 		JScrollPane consoleTextAreaScroll = new JScrollPane(consoleTextArea);
 		consoleTextAreaScroll.setBounds(consolePanel.getBounds());
 		consolePanel.add(consoleTextAreaScroll);
+	}
+
+	private void initDataSet(){
+		// 前回開いていたファイルを開く
+		for(JsonNode file : json.get("opendFiles")){
+
+		}
+
+	}
+
+	private <F> void openEditor(F file) {
+
+		// 引数がFile型かどうか確認
+		if (!(file instanceof File)) {
+			return;
+		}
+
+		// 開こうしてるファイルが既に開かれてないか確認
+		Component coms[] = tabbedPane.getComponents();
+		for (Component com : coms) {
+			if (com instanceof JScrollPane) {
+				System.out.println(com.getName());
+				Component test = ((JScrollPane) com).getComponent(0);
+				System.out.println(((JScrollPane) com).getComponent(0));
+			}
+		}
+
 	}
 
 }
