@@ -5,12 +5,14 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import javax.swing.Box;
 import javax.swing.ImageIcon;
@@ -30,6 +32,8 @@ import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -37,6 +41,7 @@ import javax.swing.tree.TreePath;
 
 import org.net.perorin.aknEditor.etc.FileTreeCellRenderer;
 import org.net.perorin.aknEditor.etc.FolderWillExpandListener;
+import org.net.perorin.aknEditor.model.Model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,7 +49,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jsyntaxpane.DefaultSyntaxKit;
 
-public class window {
+public class Window {
 
 	private JFrame frame;
 	private Font sysFont;
@@ -53,8 +58,8 @@ public class window {
 	private JTabbedPane tabbedPane;
 	private JSplitPane splitPane_HORIZONAL;
 	private JSplitPane splitPane_VERTICAL;
-
 	private JsonNode json;
+	private HashMap<JScrollPane, Boolean> isEditMap;
 
 	private final String TITLE = "茜ちゃんがJava教えてくれるってよ";
 
@@ -80,6 +85,8 @@ public class window {
 	private final String iconStartPath = "./META-INF/Play-1-Pressed-icon.png";
 	private final String iconStopPath = "./META-INF/Stop-icon.png";
 
+	private final String fontEditorPath = "./META-INF/RictyDiminished-Regular.ttf";
+
 	/**
 	 * Launch the application.
 	 */
@@ -87,7 +94,7 @@ public class window {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					window window = new window();
+					Window window = new Window();
 					window.frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -99,7 +106,7 @@ public class window {
 	/**
 	 * Create the application.
 	 */
-	public window() {
+	public Window() {
 		initialize();
 	}
 
@@ -131,18 +138,36 @@ public class window {
 		}
 
 		// エディターフォントの設定
-		edtFont = new Font("MS Gothic", Font.PLAIN, 15);
+		try {
+			edtFont = Font.createFont(Font.TRUETYPE_FONT, new File(fontEditorPath));
+		} catch (FontFormatException e1) {
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		edtFont = edtFont.deriveFont(15.0f);
 
 		// コンソールフォントの設定
-		conFont = new Font("メイリオ", Font.PLAIN, 15);
-
 		try {
-			json = new ObjectMapper().readTree(new File("./META-INF/data.json"));
+			conFont = Font.createFont(Font.TRUETYPE_FONT, new File(fontEditorPath));
+		} catch (FontFormatException e1) {
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		conFont = edtFont.deriveFont(15.0f);
+
+		// 設定ファイル読み込み
+		try {
+			json = new ObjectMapper().readTree(new File("./META-INF/config.json"));
 		} catch (JsonProcessingException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
+		// 編集済フラグを作る
+		isEditMap = new HashMap<>();
 
 		// フレーム
 		frame = new JFrame();
@@ -408,19 +433,6 @@ public class window {
 
 		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
 		editorPanel.add(tabbedPane, BorderLayout.CENTER);
-
-		JEditorPane editorTextArea = new JEditorPane();
-		editorTextArea.setBounds(editorPanel.getBounds());
-
-		JScrollPane editorTextAreaScroll = new JScrollPane(editorTextArea);
-		editorTextAreaScroll.setName("test");
-		editorTextAreaScroll.setBounds(editorPanel.getBounds());
-
-		editorTextArea.setContentType("text/java");
-		editorTextArea.setFont(edtFont);
-
-		// 暫定作成
-		tabbedPane.addTab("New tab", null, editorTextAreaScroll, null);
 	}
 
 	private void initConsole() {
@@ -437,10 +449,15 @@ public class window {
 		consolePanel.add(consoleTextAreaScroll);
 	}
 
-	private void initDataSet(){
+	private void initDataSet() {
 		// 前回開いていたファイルを開く
-		for(JsonNode file : json.get("opendFiles")){
-
+		JsonNode openedFiles = json.get("openedFiles");
+		if (openedFiles.iterator().hasNext()) {
+			for (JsonNode file : openedFiles) {
+				String str = file.get("path").toString();
+				str = str.substring(1, str.length() - 1);
+				openEditor(new File(str));
+			}
 		}
 
 	}
@@ -456,12 +473,48 @@ public class window {
 		Component coms[] = tabbedPane.getComponents();
 		for (Component com : coms) {
 			if (com instanceof JScrollPane) {
-				System.out.println(com.getName());
-				Component test = ((JScrollPane) com).getComponent(0);
-				System.out.println(((JScrollPane) com).getComponent(0));
+				if (com.getName().equals(((File) file).getName())) {
+					tabbedPane.setSelectedComponent(com);
+					return;
+				}
 			}
 		}
 
+		JEditorPane editor = new JEditorPane();
+		JScrollPane scroll = new JScrollPane(editor);
+		editor.setContentType("text/java");
+		editor.setFont(edtFont);
+		scroll.setName(((File) file).getName());
+		Model.setFile2Editor(editor, (File) file);
+		editor.getDocument().addDocumentListener(new DocumentListener() {
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				if (!isEditMap.get((JScrollPane) tabbedPane.getSelectedComponent())) {
+					tabbedPane.setTitleAt(tabbedPane.getSelectedIndex(), "*" + tabbedPane.getTitleAt(tabbedPane.getSelectedIndex()));
+					isEditMap.put((JScrollPane) tabbedPane.getSelectedComponent(), true);
+				}
+			}
+
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				if (!isEditMap.get((JScrollPane) tabbedPane.getSelectedComponent())) {
+					tabbedPane.setTitleAt(tabbedPane.getSelectedIndex(), "*" + tabbedPane.getTitleAt(tabbedPane.getSelectedIndex()));
+					isEditMap.put((JScrollPane) tabbedPane.getSelectedComponent(), true);
+				}
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				if (!isEditMap.get((JScrollPane) tabbedPane.getSelectedComponent())) {
+					tabbedPane.setTitleAt(tabbedPane.getSelectedIndex(), "*" + tabbedPane.getTitleAt(tabbedPane.getSelectedIndex()));
+					isEditMap.put((JScrollPane) tabbedPane.getSelectedComponent(), true);
+				}
+			}
+		});
+		editor.setCaretPosition(0);
+		tabbedPane.addTab(((File) file).getName(), scroll);
+		isEditMap.put(scroll, false);
 	}
 
 }
