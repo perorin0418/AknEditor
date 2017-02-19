@@ -1,5 +1,6 @@
 package org.net.perorin.aknEditor.window;
 
+import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -7,10 +8,20 @@ import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
+import java.awt.Robot;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
@@ -18,10 +29,12 @@ import javax.swing.Box;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JEditorPane;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -34,18 +47,18 @@ import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
+import javax.xml.bind.JAXB;
 
+import org.net.perorin.aknEditor.data.Config;
+import org.net.perorin.aknEditor.etc.CloseButtonTabbedPane;
 import org.net.perorin.aknEditor.etc.FileTreeCellRenderer;
 import org.net.perorin.aknEditor.etc.FolderWillExpandListener;
 import org.net.perorin.aknEditor.model.Model;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jsyntaxpane.DefaultSyntaxKit;
 
@@ -55,11 +68,12 @@ public class Window {
 	private Font sysFont;
 	private Font edtFont;
 	private Font conFont;
-	private JTabbedPane tabbedPane;
+	private CloseButtonTabbedPane tabbedPane;
 	private JSplitPane splitPane_HORIZONAL;
 	private JSplitPane splitPane_VERTICAL;
-	private JsonNode json;
+	private Config config;
 	private HashMap<JScrollPane, Boolean> isEditMap;
+	private HashMap<JScrollPane, JEditorPane> editorMap;
 
 	private final String TITLE = "茜ちゃんがJava教えてくれるってよ";
 
@@ -84,6 +98,7 @@ public class Window {
 	private final String iconExitPath = "./META-INF/Close-2-icon.png";
 	private final String iconStartPath = "./META-INF/Play-1-Pressed-icon.png";
 	private final String iconStopPath = "./META-INF/Stop-icon.png";
+	private final String iconTabClosePath = "./META-INF/close-icon.png";
 
 	private final String fontEditorPath = "./META-INF/RictyDiminished-Regular.ttf";
 
@@ -158,16 +173,13 @@ public class Window {
 		conFont = edtFont.deriveFont(15.0f);
 
 		// 設定ファイル読み込み
-		try {
-			json = new ObjectMapper().readTree(new File("./META-INF/config.json"));
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		config = JAXB.unmarshal(new File("./META-INF/config.xml"), Config.class);
 
 		// 編集済フラグを作る
 		isEditMap = new HashMap<>();
+
+		// スクロールペーンとエディターペーンを関連付ける
+		editorMap = new HashMap<>();
 
 		// フレーム
 		frame = new JFrame();
@@ -175,6 +187,13 @@ public class Window {
 		frame.setIconImage(new ImageIcon(iconMainPath).getImage());
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setTitle(TITLE);
+		frame.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				super.windowClosing(e);
+				beforeClosing();
+			}
+		});
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
 
 		initMenuBar();
@@ -232,11 +251,25 @@ public class Window {
 		JMenuItem menuItemSave = new JMenuItem("保存");
 		menuItemSave.setFont(sysFont);
 		menuItemSave.setIcon(new ImageIcon(iconSavePath));
+		menuItemSave.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				saveAction((JScrollPane) tabbedPane.getSelectedComponent(), tabbedPane.getSelectedIndex());
+			}
+		});
 		menuFile.add(menuItemSave);
 
 		JMenuItem menuItemSaveAs = new JMenuItem("名前を付けて保存");
 		menuItemSaveAs.setFont(sysFont);
 		menuItemSaveAs.setIcon(new ImageIcon(iconSaveAsPath));
+		menuItemSaveAs.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				saveAsAction((JScrollPane) tabbedPane.getSelectedComponent(), tabbedPane.getSelectedIndex());
+			}
+		});
 		menuFile.add(menuItemSaveAs);
 
 		JMenuItem menuItemAllSave = new JMenuItem("すべて保存");
@@ -249,6 +282,14 @@ public class Window {
 		JMenuItem menuItemExit = new JMenuItem("終了");
 		menuItemExit.setFont(sysFont);
 		menuItemExit.setIcon(new ImageIcon(iconExitPath));
+		menuItemExit.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				beforeClosing();
+				System.exit(0);
+			}
+		});
 		menuFile.add(menuItemExit);
 
 		JMenu menuEdit = new JMenu("編集");
@@ -258,11 +299,43 @@ public class Window {
 		JMenuItem menuItemUndo = new JMenuItem("元に戻す");
 		menuItemUndo.setFont(sysFont);
 		menuItemUndo.setIcon(new ImageIcon(iconUndoPath));
+		menuItemUndo.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_Y);
+					r.keyRelease(KeyEvent.VK_Y);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemUndo);
 
 		JMenuItem menuItemRedo = new JMenuItem("やり直し");
 		menuItemRedo.setFont(sysFont);
 		menuItemRedo.setIcon(new ImageIcon(iconRedoPath));
+		menuItemRedo.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_Z);
+					r.keyRelease(KeyEvent.VK_Z);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemRedo);
 
 		menuEdit.add(Box.createRigidArea(new Dimension(5, 5)));
@@ -270,16 +343,63 @@ public class Window {
 		JMenuItem menuItemCut = new JMenuItem("切り取り");
 		menuItemCut.setFont(sysFont);
 		menuItemCut.setIcon(new ImageIcon(iconCutPath));
+		menuItemCut.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_X);
+					r.keyRelease(KeyEvent.VK_X);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemCut);
 
 		JMenuItem menuItemCopy = new JMenuItem("コピー");
 		menuItemCopy.setFont(sysFont);
 		menuItemCopy.setIcon(new ImageIcon(iconCopyPath));
+		menuItemCopy.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_C);
+					r.keyRelease(KeyEvent.VK_C);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemCopy);
 
-		JMenuItem menuItemPaste = new JMenuItem("ペースト");
+		JMenuItem menuItemPaste = new JMenuItem("貼り付け");
 		menuItemPaste.setFont(sysFont);
 		menuItemPaste.setIcon(new ImageIcon(iconPastePath));
+		menuItemPaste.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_V);
+					r.keyRelease(KeyEvent.VK_V);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemPaste);
 
 		menuEdit.add(Box.createRigidArea(new Dimension(5, 5)));
@@ -287,11 +407,43 @@ public class Window {
 		JMenuItem menuItemAllSelect = new JMenuItem("すべて選択");
 		menuItemAllSelect.setFont(sysFont);
 		menuItemAllSelect.setIcon(new ImageIcon(iconSelectAllPath));
+		menuItemAllSelect.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_A);
+					r.keyRelease(KeyEvent.VK_A);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemAllSelect);
 
 		JMenuItem menuItemFind = new JMenuItem("検索/置換");
 		menuItemFind.setFont(sysFont);
 		menuItemFind.setIcon(new ImageIcon(iconFindPath));
+		menuItemFind.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_H);
+					r.keyRelease(KeyEvent.VK_H);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		menuEdit.add(menuItemFind);
 
 		JMenu menuHelp = new JMenu("ヘルプ");
@@ -371,10 +523,24 @@ public class Window {
 
 		JButton btnSave = new JButton(new ImageIcon(iconSavePath));
 		btnSave.setToolTipText("保存");
+		btnSave.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				saveAction((JScrollPane) tabbedPane.getSelectedComponent(), tabbedPane.getSelectedIndex());
+			}
+		});
 		toolBar.add(btnSave);
 
 		JButton btnSaveAs = new JButton(new ImageIcon(iconSaveAsPath));
 		btnSaveAs.setToolTipText("名前を付けて保存");
+		btnSaveAs.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				saveAsAction((JScrollPane) tabbedPane.getSelectedComponent(), tabbedPane.getSelectedIndex());
+			}
+		});
 		toolBar.add(btnSaveAs);
 
 		JButton btnSaveAll = new JButton(new ImageIcon(iconSaveAllPath));
@@ -385,34 +551,146 @@ public class Window {
 
 		JButton btnUndo = new JButton(new ImageIcon(iconUndoPath));
 		btnUndo.setToolTipText("元に戻す");
+		btnUndo.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_Y);
+					r.keyRelease(KeyEvent.VK_Y);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnUndo);
 
 		JButton btnRedo = new JButton(new ImageIcon(iconRedoPath));
 		btnRedo.setToolTipText("やり直す");
+		btnRedo.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_Z);
+					r.keyRelease(KeyEvent.VK_Z);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnRedo);
 
 		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
 
 		JButton btnCut = new JButton(new ImageIcon(iconCutPath));
 		btnCut.setToolTipText("切り取り");
+		btnCut.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_X);
+					r.keyRelease(KeyEvent.VK_X);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnCut);
 
 		JButton btnCopy = new JButton(new ImageIcon(iconCopyPath));
 		btnCopy.setToolTipText("コピー");
+		btnCopy.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_C);
+					r.keyRelease(KeyEvent.VK_C);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnCopy);
 
 		JButton btnPaste = new JButton(new ImageIcon(iconPastePath));
 		btnPaste.setToolTipText("貼り付け");
+		btnPaste.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_V);
+					r.keyRelease(KeyEvent.VK_V);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnPaste);
 
 		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
 
 		JButton btnSelectAll = new JButton(new ImageIcon(iconSelectAllPath));
 		btnSelectAll.setToolTipText("すべて選択");
+		btnSelectAll.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_A);
+					r.keyRelease(KeyEvent.VK_A);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnSelectAll);
 
 		JButton btnFind = new JButton(new ImageIcon(iconFindPath));
 		btnFind.setToolTipText("検索/置き換え");
+		btnFind.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.getSelectedComponent().transferFocus();
+				try {
+					Robot r = new Robot();
+					r.keyPress(KeyEvent.VK_CONTROL);
+					r.keyPress(KeyEvent.VK_H);
+					r.keyRelease(KeyEvent.VK_H);
+					r.keyRelease(KeyEvent.VK_CONTROL);
+				} catch (AWTException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
 		toolBar.add(btnFind);
 
 		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
@@ -431,7 +709,35 @@ public class Window {
 		editorPanel.setLayout(new BorderLayout(0, 0));
 		splitPane_HORIZONAL.setLeftComponent(editorPanel);
 
-		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+		tabbedPane = new CloseButtonTabbedPane(JTabbedPane.TOP, new ImageIcon(iconTabClosePath)) {
+			@Override
+			public boolean beforeRemoveTabAt(int index) {
+				JScrollPane remove = (JScrollPane) tabbedPane.getComponentAt(index);
+				if (isEditMap.get(remove)) {
+					int ret = JOptionPane.showConfirmDialog(frame.getContentPane(),
+							tabbedPane.getTitleAt(index) + "は変更されています。保存しますか？", "確認", JOptionPane.YES_NO_CANCEL_OPTION);
+					switch (ret) {
+					case 0:
+						// 保存処理
+						saveAction(remove, index);
+						break;
+
+					case 1:
+						// 何もしない
+						break;
+
+					case 2:
+						return false;
+
+					default:
+						return false;
+					}
+				}
+				config.getOpenedFiles().remove(index);
+				editorMap.remove(remove);
+				return true;
+			}
+		};
 		editorPanel.add(tabbedPane, BorderLayout.CENTER);
 	}
 
@@ -451,13 +757,8 @@ public class Window {
 
 	private void initDataSet() {
 		// 前回開いていたファイルを開く
-		JsonNode openedFiles = json.get("openedFiles");
-		if (openedFiles.iterator().hasNext()) {
-			for (JsonNode file : openedFiles) {
-				String str = file.get("path").toString();
-				str = str.substring(1, str.length() - 1);
-				openEditor(new File(str));
-			}
+		for (String file : new ArrayList<>(config.getOpenedFiles())) {
+			openEditor(new File(file));
 		}
 
 	}
@@ -482,10 +783,13 @@ public class Window {
 
 		JEditorPane editor = new JEditorPane();
 		JScrollPane scroll = new JScrollPane(editor);
+		editorMap.put(scroll, editor);
 		editor.setContentType("text/java");
 		editor.setFont(edtFont);
 		scroll.setName(((File) file).getName());
-		Model.setFile2Editor(editor, (File) file);
+		if (!Model.setFile2Editor(editor, (File) file)) {
+			return;
+		}
 		editor.getDocument().addDocumentListener(new DocumentListener() {
 
 			@Override
@@ -512,9 +816,52 @@ public class Window {
 				}
 			}
 		});
+		editor.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				super.keyPressed(e);
+				if (e.isControlDown()) {
+					if (83 == e.getKeyCode()) {
+						saveAction((JScrollPane) tabbedPane.getSelectedComponent(), tabbedPane.getSelectedIndex());
+					}
+				}
+			}
+		});
 		editor.setCaretPosition(0);
 		tabbedPane.addTab(((File) file).getName(), scroll);
+		tabbedPane.setSelectedComponent(scroll);
 		isEditMap.put(scroll, false);
+		ArrayList<String> list = config.getOpenedFiles();
+		if (!list.contains(((File) file).toString())) {
+			config.getOpenedFiles().add(((File) file).toString());
+		}
+	}
+
+	private void saveAction(JScrollPane scroll, int index) {
+		if ('*' == tabbedPane.getTitleAt(index).charAt(0)) {
+			Model.fileSave(editorMap.get(scroll), tabbedPane.getTitleAt(index));
+			tabbedPane.setTitleAt(index, tabbedPane.getTitleAt(index).substring(1, tabbedPane.getTitleAt(index).length()));
+			isEditMap.put(scroll, false);
+		}
+	}
+
+	private void saveAsAction(JScrollPane scroll, int index) {
+		JFileChooser filechooser = new JFileChooser();
+		FileNameExtensionFilter ff = new FileNameExtensionFilter("Javaファイル(*.java)", "java");
+		filechooser.setFileFilter(ff);
+		int selected = filechooser.showSaveDialog(frame);
+		if (selected == JFileChooser.APPROVE_OPTION) {
+			File file = filechooser.getSelectedFile();
+			Model.fileSaveAs(editorMap.get(scroll), new File(file.toString() + ".java"));
+		}
+	}
+
+	private void beforeClosing() {
+		try {
+			JAXB.marshal(config, new FileOutputStream("./META-INF/config.xml"));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 
 }
