@@ -17,10 +17,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,10 +38,12 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.JToolBar;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
@@ -59,6 +63,7 @@ import org.net.perorin.aknEditor.etc.CloseButtonTabbedPane;
 import org.net.perorin.aknEditor.etc.FileTreeCellRenderer;
 import org.net.perorin.aknEditor.etc.FolderWillExpandListener;
 import org.net.perorin.aknEditor.model.Model;
+import org.net.perorin.toolkit.FileUtils;
 
 import jsyntaxpane.DefaultSyntaxKit;
 
@@ -71,7 +76,13 @@ public class Window {
 	private CloseButtonTabbedPane tabbedPane;
 	private JSplitPane splitPane_HORIZONAL;
 	private JSplitPane splitPane_VERTICAL;
+	private JTextField consoleField;
+	private JTextArea consoleTextArea;
+	private JScrollPane consoleTextAreaScroll;
+	private JTree tree;
 	private Config config;
+	private Process p;
+	private String command;
 	private HashMap<JScrollPane, Boolean> isEditMap;
 	private HashMap<JScrollPane, JEditorPane> editorMap;
 
@@ -227,11 +238,25 @@ public class Window {
 		JMenuItem menuItemNew = new JMenuItem("新規ファイル");
 		menuItemNew.setFont(sysFont);
 		menuItemNew.setIcon(new ImageIcon(iconNewPath));
+		menuItemNew.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				newFile();
+			}
+		});
 		menuFile.add(menuItemNew);
 
 		JMenuItem menuItemOpenFile = new JMenuItem("ファイルを開く");
 		menuItemOpenFile.setFont(sysFont);
 		menuItemOpenFile.setIcon(new ImageIcon(iconOpenPath));
+		menuItemOpenFile.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				openFile();
+			}
+		});
 		menuFile.add(menuItemOpenFile);
 
 		menuFile.add(Box.createRigidArea(new Dimension(5, 5)));
@@ -239,11 +264,25 @@ public class Window {
 		JMenuItem menuItemClose = new JMenuItem("閉じる");
 		menuItemClose.setFont(sysFont);
 		menuItemClose.setIcon(new ImageIcon(iconClosePath));
+		menuItemClose.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.removeTabAt(tabbedPane.getSelectedIndex());
+			}
+		});
 		menuFile.add(menuItemClose);
 
 		JMenuItem menuItemAllClose = new JMenuItem("すべて閉じる");
 		menuItemAllClose.setFont(sysFont);
 		menuItemAllClose.setIcon(new ImageIcon(iconCloseAllPath));
+		menuItemAllClose.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.removeAll();
+			}
+		});
 		menuFile.add(menuItemAllClose);
 
 		menuFile.add(Box.createRigidArea(new Dimension(5, 5)));
@@ -461,6 +500,12 @@ public class Window {
 		splitPane_VERTICAL.setLeftComponent(directoryPanel);
 		directoryPanel.setLayout(new BorderLayout(0, 0));
 
+		initTree();
+
+		directoryPanel.add(new JScrollPane(tree), BorderLayout.CENTER);
+	}
+
+	private void initTree() {
 		FileSystemView fileSystemView = FileSystemView.getFileSystemView();
 		DefaultMutableTreeNode root = new DefaultMutableTreeNode(workSpacePath);
 		DefaultTreeModel treeModel = new DefaultTreeModel(root);
@@ -474,7 +519,7 @@ public class Window {
 			}
 		}
 
-		JTree tree = new JTree(treeModel);
+		tree = new JTree(treeModel);
 		tree.setFont(sysFont);
 		tree.addTreeWillExpandListener(new FolderWillExpandListener(fileSystemView));
 		tree.setCellRenderer(new FileTreeCellRenderer(tree.getCellRenderer(), fileSystemView));
@@ -485,11 +530,12 @@ public class Window {
 				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
 					JTree tree = (JTree) e.getSource();
 					TreePath path = tree.getPathForLocation(e.getX(), e.getY());
-					openEditor(new File(path.getLastPathComponent().toString()));
+					if (path != null) {
+						openEditor(new File(path.getLastPathComponent().toString()));
+					}
 				}
 			}
 		});
-		directoryPanel.add(new JScrollPane(tree), BorderLayout.CENTER);
 	}
 
 	private void initTool() {
@@ -503,20 +549,48 @@ public class Window {
 
 		JButton btnNew = new JButton(new ImageIcon(iconNewPath));
 		btnNew.setToolTipText("新規ファイル");
+		btnNew.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				newFile();
+			}
+		});
 		toolBar.add(btnNew);
 
 		JButton btnOpen = new JButton(new ImageIcon(iconOpenPath));
 		btnOpen.setToolTipText("ファイルを開く");
+		btnOpen.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				openFile();
+			}
+		});
 		toolBar.add(btnOpen);
 
 		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
 
 		JButton btnClose = new JButton(new ImageIcon(iconClosePath));
 		btnClose.setToolTipText("閉じる");
+		btnClose.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.removeTabAt(tabbedPane.getSelectedIndex());
+			}
+		});
 		toolBar.add(btnClose);
 
 		JButton btnCloseAll = new JButton(new ImageIcon(iconCloseAllPath));
 		btnCloseAll.setToolTipText("すべて閉じる");
+		btnCloseAll.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				tabbedPane.removeAll();
+			}
+		});
 		toolBar.add(btnCloseAll);
 
 		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
@@ -695,13 +769,6 @@ public class Window {
 
 		toolBar.add(Box.createRigidArea(new Dimension(10, 5)));
 
-		JButton btnStart = new JButton(new ImageIcon(iconStartPath));
-		btnStart.setToolTipText("実行");
-		toolBar.add(btnStart);
-
-		JButton btnStop = new JButton(new ImageIcon(iconStopPath));
-		btnStop.setToolTipText("停止");
-		toolBar.add(btnStop);
 	}
 
 	private void initEditor() {
@@ -746,13 +813,68 @@ public class Window {
 		consolePanel.setLayout(new BorderLayout(0, 0));
 		splitPane_VERTICAL.setRightComponent(consolePanel);
 
-		JTextArea consoleTextArea = new JTextArea();
+		JToolBar toolBar = new JToolBar();
+		toolBar.setFloatable(false);
+		consolePanel.add(toolBar, BorderLayout.SOUTH);
+
+		consoleField = new JTextField();
+		consoleField.setColumns(10);
+		consoleField.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				super.keyPressed(e);
+				if (e.isControlDown()) {
+					if (67 == e.getKeyCode()) {
+						executeStop();
+					}
+				}
+			}
+		});
+		consoleField.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (!"".equals(consoleField.getText())) {
+					executeCommand(consoleField.getText());
+					consoleField.setText("");
+				}
+			}
+		});
+		toolBar.add(consoleField);
+
+		JButton btnStart = new JButton(new ImageIcon(iconStartPath));
+		btnStart.setToolTipText("実行");
+		btnStart.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				executeCommand(consoleField.getText());
+				consoleField.setText("");
+			}
+		});
+		toolBar.add(btnStart);
+
+		JButton btnStop = new JButton(new ImageIcon(iconStopPath));
+		btnStop.setToolTipText("停止");
+		btnStop.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				executeStop();
+			}
+		});
+		toolBar.add(btnStop);
+
+		consoleTextArea = new JTextArea();
+		consoleTextArea.setEditable(false);
 		consoleTextArea.setFont(conFont);
 		consoleTextArea.setBounds(consolePanel.getBounds());
 
-		JScrollPane consoleTextAreaScroll = new JScrollPane(consoleTextArea);
+		consoleTextAreaScroll = new JScrollPane(consoleTextArea);
 		consoleTextAreaScroll.setBounds(consolePanel.getBounds());
 		consolePanel.add(consoleTextAreaScroll);
+
+		executeCommand("");
 	}
 
 	private void initDataSet() {
@@ -856,6 +978,56 @@ public class Window {
 		}
 	}
 
+	private void openFile() {
+		JFileChooser filechooser = new JFileChooser();
+		FileNameExtensionFilter ff = new FileNameExtensionFilter("Javaファイル(*.java)", "java");
+		filechooser.setFileFilter(ff);
+		int selected = filechooser.showOpenDialog(frame);
+		if (selected == JFileChooser.APPROVE_OPTION) {
+			File file = filechooser.getSelectedFile();
+			try {
+				FileUtils.copyFile(file, new File(workSpacePath + "/" + file.getName()));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void newFile() {
+		String value = JOptionPane.showInputDialog(frame, "ファイル名を決定してください。\n頭文字は大文字にしてください。");
+
+		if (value != null) {
+
+			if (!Character.isUpperCase(value.charAt(0))) {
+				JOptionPane.showMessageDialog(frame, "ファイル名の頭文字は大文字にしてください。");
+				return;
+			}
+			File file = new File(workSpacePath + "/" + value + ".java");
+			try {
+				if (file.createNewFile()) {
+					Model.setMainMethod(file);
+					openEditor(file);
+					initTree();
+				} else {
+					JOptionPane.showMessageDialog(frame, "ファイルの作成に失敗しました。");
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void executeCommand(String command) {
+		this.command = command;
+		Execute execute = new Execute();
+		Thread thread = new Thread(execute);
+		thread.start();
+	}
+
+	private void executeStop() {
+		p.destroy();
+	}
+
 	private void beforeClosing() {
 		try {
 			JAXB.marshal(config, new FileOutputStream("./META-INF/config.xml"));
@@ -864,4 +1036,80 @@ public class Window {
 		}
 	}
 
+	private class Execute implements Runnable {
+		public void run() {
+			try {
+				ProcessBuilder pb = new ProcessBuilder("cmd", "/c", "cd");
+				pb.directory(workSpacePath);
+				pb.redirectErrorStream(true);
+				p = pb.start();
+				p.waitFor();
+
+				InputStreamReader is = new InputStreamReader(p.getInputStream(), "MS932");
+				BufferedReader br = new BufferedReader(is);
+				String line;
+				while ((line = br.readLine()) != null) {
+					consoleTextArea.setText(consoleTextArea.getText() + line.substring(line.length() - 19, line.length()) + " > " + command + "\n");
+					JScrollBar vBar = consoleTextAreaScroll.getVerticalScrollBar();
+					int vBarMax = vBar.getMaximum();
+					vBar.setValue(vBarMax);
+					JScrollBar hBar = consoleTextAreaScroll.getHorizontalScrollBar();
+					int hBarMin = hBar.getMinimum();
+					hBar.setValue(hBarMin);
+				}
+
+				if (!"".equals(command)) {
+					if ("java".equals(command.split(" ")[0]) || "javac".equals(command.split(" ")[0])) {
+						command = "..\\java\\bin\\" + command;
+					}
+					command = "cmd /c " + command;
+
+					pb.command(command.split(" "));
+					p = pb.start();
+					p.waitFor();
+
+					is = new InputStreamReader(p.getInputStream(), "MS932");
+					br = new BufferedReader(is);
+					int count = 0;
+					while ((line = br.readLine()) != null) {
+						if (count > config.getLogSize()) {
+							break;
+						}
+						consoleTextArea.setText(consoleTextArea.getText() + line + "\n");
+						JScrollBar vBar = consoleTextAreaScroll.getVerticalScrollBar();
+						int vBarMax = vBar.getMaximum();
+						vBar.setValue(vBarMax);
+						JScrollBar hBar = consoleTextAreaScroll.getHorizontalScrollBar();
+						int hBarMin = hBar.getMinimum();
+						hBar.setValue(hBarMin);
+						count++;
+					}
+					if (count > config.getLogSize()) {
+						consoleTextArea.setText(consoleTextArea.getText() + "＊＊＊＊＊出力ログの量が多すぎます。＊＊＊＊＊" + "\n");
+					}
+
+					pb.command("cmd", "/c", "cd");
+					p = pb.start();
+					p.waitFor();
+
+					is = new InputStreamReader(p.getInputStream(), "MS932");
+					br = new BufferedReader(is);
+					while ((line = br.readLine()) != null) {
+						consoleTextArea.setText(consoleTextArea.getText() + "\n" + line.substring(line.length() - 19, line.length()) + " > \n");
+						JScrollBar vBar = consoleTextAreaScroll.getVerticalScrollBar();
+						int vBarMax = vBar.getMaximum();
+						vBar.setValue(vBarMax);
+						JScrollBar hBar = consoleTextAreaScroll.getHorizontalScrollBar();
+						int hBarMin = hBar.getMinimum();
+						hBar.setValue(hBarMin);
+					}
+				}
+				initTree();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
 }

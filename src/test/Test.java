@@ -1,22 +1,38 @@
 package test;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-
-import javax.xml.bind.JAXB;
-
-import org.net.perorin.aknEditor.data.Config;
+import java.awt.EventQueue;
+import java.io.IOException;
 
 public class Test {
+	static Hoge execute;
 
-	public static void main(String[] args) throws FileNotFoundException {
+	public static void main(String[] args) throws IOException, InterruptedException {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					execute = new Hoge();
+					execute.run();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
 
-		Config con = new Config();
-		con.getOpenedFiles().add("./workspace/001.java");
-		con.getOpenedFiles().add("./workspace/002.java");
-		con.getOpenedFiles().add("./workspace/003.java");
-		JAXB.marshal(con, new FileOutputStream("./META-INF/config.xml"));
+		execute.stop();
 
 	}
 
+}
+class Hoge {
+	boolean flg = true;
+
+	public void run() {
+		while(flg){
+			System.out.println("test");
+		}
+	}
+
+	public void stop(){
+		flg = false;
+	}
 }

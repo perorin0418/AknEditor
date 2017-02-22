@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
-    <openedFiles>C:\Users\perorin\Desktop\Desktop\pleiades\workspace\AknEditor\workspace\001.java</openedFiles>
+    <logSize>100</logSize>
+    <openedFiles>.\workspace\Test.java</openedFiles>
+    <openedFiles>.\workspace\Fuga.java</openedFiles>
 </config>

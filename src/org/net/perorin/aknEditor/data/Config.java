@@ -17,4 +17,14 @@ public class Config {
 		this.openedFiles = openedFiles;
 	}
 
+	private int logSize = 0;
+
+	public int getLogSize() {
+		return logSize;
+	}
+
+	public void setLogSize(int logSize) {
+		this.logSize = logSize;
+	}
+
 }
