@@ -43,7 +43,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import javax.swing.JToolBar;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
@@ -60,6 +59,7 @@ import javax.xml.bind.JAXB;
 
 import org.net.perorin.aknEditor.data.Config;
 import org.net.perorin.aknEditor.etc.CloseButtonTabbedPane;
+import org.net.perorin.aknEditor.etc.ConsoleTextField;
 import org.net.perorin.aknEditor.etc.FileTreeCellRenderer;
 import org.net.perorin.aknEditor.etc.FolderWillExpandListener;
 import org.net.perorin.aknEditor.model.Model;
@@ -76,7 +76,7 @@ public class Window {
 	private CloseButtonTabbedPane tabbedPane;
 	private JSplitPane splitPane_HORIZONAL;
 	private JSplitPane splitPane_VERTICAL;
-	private JTextField consoleField;
+	private ConsoleTextField consoleField;
 	private JTextArea consoleTextArea;
 	private JScrollPane consoleTextAreaScroll;
 	private JTree tree;
@@ -223,7 +223,7 @@ public class Window {
 		frame.getContentPane().add(splitPane_HORIZONAL, BorderLayout.CENTER);
 		splitPane_VERTICAL = new JSplitPane();
 		splitPane_VERTICAL.setOrientation(JSplitPane.VERTICAL_SPLIT);
-		splitPane_VERTICAL.setDividerLocation(400);
+		//		splitPane_VERTICAL.setDividerLocation(400);
 		splitPane_HORIZONAL.setRightComponent(splitPane_VERTICAL);
 	}
 
@@ -500,12 +500,6 @@ public class Window {
 		splitPane_VERTICAL.setLeftComponent(directoryPanel);
 		directoryPanel.setLayout(new BorderLayout(0, 0));
 
-		initTree();
-
-		directoryPanel.add(new JScrollPane(tree), BorderLayout.CENTER);
-	}
-
-	private void initTree() {
 		FileSystemView fileSystemView = FileSystemView.getFileSystemView();
 		DefaultMutableTreeNode root = new DefaultMutableTreeNode(workSpacePath);
 		DefaultTreeModel treeModel = new DefaultTreeModel(root);
@@ -524,6 +518,7 @@ public class Window {
 		tree.addTreeWillExpandListener(new FolderWillExpandListener(fileSystemView));
 		tree.setCellRenderer(new FileTreeCellRenderer(tree.getCellRenderer(), fileSystemView));
 		tree.addMouseListener(new MouseAdapter() {
+
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				super.mouseClicked(e);
@@ -536,6 +531,52 @@ public class Window {
 				}
 			}
 		});
+
+		JScrollPane scrollPane = new JScrollPane(tree);
+		directoryPanel.add(scrollPane, BorderLayout.CENTER);
+
+		JToolBar toolBar = new JToolBar();
+		toolBar.setFloatable(false);
+		scrollPane.setColumnHeaderView(toolBar);
+
+		toolBar.add(Box.createRigidArea(new Dimension(5, 5)));
+
+		JButton btnNewFile = new JButton(new ImageIcon(iconNewPath));
+		btnNewFile.setText("新規ファイル");
+		btnNewFile.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				newFile();
+			}
+		});
+		toolBar.add(btnNewFile);
+
+		JButton btnOpen = new JButton(new ImageIcon(iconOpenPath));
+		btnOpen.setText("開く");
+		btnOpen.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				openFile();
+			}
+		});
+		toolBar.add(btnOpen);
+
+		JButton btnDelete = new JButton(new ImageIcon(iconExitPath));
+		btnDelete.setText("削除");
+		btnDelete.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (tree.getSelectionPath() != null) {
+					String file = String.valueOf(tree.getSelectionPath().getLastPathComponent());
+					new File(file).delete();
+					initDirectory();
+				}
+			}
+		});
+		toolBar.add(btnDelete);
 	}
 
 	private void initTool() {
@@ -817,45 +858,38 @@ public class Window {
 		toolBar.setFloatable(false);
 		consolePanel.add(toolBar, BorderLayout.SOUTH);
 
-		consoleField = new JTextField();
-		consoleField.setColumns(10);
-		consoleField.addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(KeyEvent e) {
-				super.keyPressed(e);
-				if (e.isControlDown()) {
-					if (67 == e.getKeyCode()) {
-						executeStop();
-					}
-				}
-			}
-		});
-		consoleField.addActionListener(new ActionListener() {
+		consoleField = new ConsoleTextField() {
 
 			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (!"".equals(consoleField.getText())) {
-					executeCommand(consoleField.getText());
-					consoleField.setText("");
-				}
+			public void actionPerform() {
+				super.actionPerform();
+				executeCommand(consoleField.getText());
+				consoleField.setText("");
 			}
-		});
+
+			@Override
+			public void actionStop() {
+				super.actionStop();
+			}
+		};
+		consoleField.setColumns(10);
 		toolBar.add(consoleField);
 
 		JButton btnStart = new JButton(new ImageIcon(iconStartPath));
 		btnStart.setToolTipText("実行");
+		btnStart.setFocusable(false);
 		btnStart.addActionListener(new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				executeCommand(consoleField.getText());
-				consoleField.setText("");
+				consoleField.actionPerform();
 			}
 		});
 		toolBar.add(btnStart);
 
 		JButton btnStop = new JButton(new ImageIcon(iconStopPath));
 		btnStop.setToolTipText("停止");
+		btnStop.setFocusable(false);
 		btnStop.addActionListener(new ActionListener() {
 
 			@Override
@@ -1007,7 +1041,7 @@ public class Window {
 				if (file.createNewFile()) {
 					Model.setMainMethod(file);
 					openEditor(file);
-					initTree();
+					initDirectory();
 				} else {
 					JOptionPane.showMessageDialog(frame, "ファイルの作成に失敗しました。");
 				}
@@ -1104,7 +1138,7 @@ public class Window {
 						hBar.setValue(hBarMin);
 					}
 				}
-				initTree();
+				initDirectory();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			} catch (IOException e) {

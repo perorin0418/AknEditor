@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
     <logSize>100</logSize>
-    <openedFiles>.\workspace\Test.java</openedFiles>
-    <openedFiles>.\workspace\Fuga.java</openedFiles>
 </config>
