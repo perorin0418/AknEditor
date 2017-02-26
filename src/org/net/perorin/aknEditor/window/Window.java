@@ -485,14 +485,14 @@ public class Window {
 		});
 		menuEdit.add(menuItemFind);
 
-		JMenu menuHelp = new JMenu("ヘルプ");
-		menuHelp.setFont(sysFont);
-		menuBar.add(menuHelp);
-
-		JMenuItem menuItemNotice = new JMenuItem("このソフトウェアについて");
-		menuItemNotice.setFont(sysFont);
-		menuItemNotice.setIcon(new ImageIcon(iconNoticePath));
-		menuHelp.add(menuItemNotice);
+		//		JMenu menuHelp = new JMenu("ヘルプ");
+		//		menuHelp.setFont(sysFont);
+		//		menuBar.add(menuHelp);
+		//
+		//		JMenuItem menuItemNotice = new JMenuItem("このソフトウェアについて");
+		//		menuItemNotice.setFont(sysFont);
+		//		menuItemNotice.setIcon(new ImageIcon(iconNoticePath));
+		//		menuHelp.add(menuItemNotice);
 	}
 
 	private void initDirectory() {
@@ -820,30 +820,7 @@ public class Window {
 		tabbedPane = new CloseButtonTabbedPane(JTabbedPane.TOP, new ImageIcon(iconTabClosePath)) {
 			@Override
 			public boolean beforeRemoveTabAt(int index) {
-				JScrollPane remove = (JScrollPane) tabbedPane.getComponentAt(index);
-				if (isEditMap.get(remove)) {
-					int ret = JOptionPane.showConfirmDialog(frame.getContentPane(),
-							tabbedPane.getTitleAt(index) + "は変更されています。保存しますか？", "確認", JOptionPane.YES_NO_CANCEL_OPTION);
-					switch (ret) {
-					case 0:
-						// 保存処理
-						saveAction(remove, index);
-						break;
-
-					case 1:
-						// 何もしない
-						break;
-
-					case 2:
-						return false;
-
-					default:
-						return false;
-					}
-				}
-				config.getOpenedFiles().remove(index);
-				editorMap.remove(remove);
-				return true;
+				return removeTab(index);
 			}
 		};
 		editorPanel.add(tabbedPane, BorderLayout.CENTER);
@@ -1064,6 +1041,21 @@ public class Window {
 
 	private void beforeClosing() {
 		try {
+			for (int index = 0; index < tabbedPane.getComponentCount() - 1; index++) {
+				JScrollPane remove = (JScrollPane) tabbedPane.getComponentAt(index);
+				if (isEditMap.get(remove)) {
+					int ret = JOptionPane.showConfirmDialog(frame.getContentPane(),
+							tabbedPane.getTitleAt(index) + "は変更されています。保存しますか？", "確認", JOptionPane.YES_NO_CANCEL_OPTION);
+					switch (ret) {
+					case 0:
+						// 保存処理
+						saveAction(remove, index);
+						break;
+
+					}
+				}
+			}
+
 			JAXB.marshal(config, new FileOutputStream("./META-INF/config.xml"));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -1083,7 +1075,7 @@ public class Window {
 				BufferedReader br = new BufferedReader(is);
 				String line;
 				while ((line = br.readLine()) != null) {
-					consoleTextArea.setText(consoleTextArea.getText() + line.substring(line.length() - 19, line.length()) + " > " + command + "\n");
+					consoleTextArea.setText(consoleTextArea.getText() + line.substring(line.length() - 23, line.length()) + " > " + command + "\n");
 					JScrollBar vBar = consoleTextAreaScroll.getVerticalScrollBar();
 					int vBarMax = vBar.getMaximum();
 					vBar.setValue(vBarMax);
@@ -1129,7 +1121,7 @@ public class Window {
 					is = new InputStreamReader(p.getInputStream(), "MS932");
 					br = new BufferedReader(is);
 					while ((line = br.readLine()) != null) {
-						consoleTextArea.setText(consoleTextArea.getText() + "\n" + line.substring(line.length() - 19, line.length()) + " > \n");
+						consoleTextArea.setText(consoleTextArea.getText() + "\n" + line.substring(line.length() - 23, line.length()) + " > \n");
 						JScrollBar vBar = consoleTextAreaScroll.getVerticalScrollBar();
 						int vBarMax = vBar.getMaximum();
 						vBar.setValue(vBarMax);
@@ -1145,5 +1137,32 @@ public class Window {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	private boolean removeTab(int index) {
+		JScrollPane remove = (JScrollPane) tabbedPane.getComponentAt(index);
+		if (isEditMap.get(remove)) {
+			int ret = JOptionPane.showConfirmDialog(frame.getContentPane(),
+					tabbedPane.getTitleAt(index) + "は変更されています。保存しますか？", "確認", JOptionPane.YES_NO_CANCEL_OPTION);
+			switch (ret) {
+			case 0:
+				// 保存処理
+				saveAction(remove, index);
+				break;
+
+			case 1:
+				// 何もしない
+				break;
+
+			case 2:
+				return false;
+
+			default:
+				return false;
+			}
+		}
+		config.getOpenedFiles().remove(index);
+		editorMap.remove(remove);
+		return true;
 	}
 }
