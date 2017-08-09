@@ -223,7 +223,6 @@ public class Window {
 		frame.getContentPane().add(splitPane_HORIZONAL, BorderLayout.CENTER);
 		splitPane_VERTICAL = new JSplitPane();
 		splitPane_VERTICAL.setOrientation(JSplitPane.VERTICAL_SPLIT);
-		//		splitPane_VERTICAL.setDividerLocation(400);
 		splitPane_HORIZONAL.setRightComponent(splitPane_VERTICAL);
 	}
 
@@ -572,7 +571,9 @@ public class Window {
 				if (tree.getSelectionPath() != null) {
 					String file = String.valueOf(tree.getSelectionPath().getLastPathComponent());
 					new File(file).delete();
+					int height = splitPane_VERTICAL.getDividerLocation();
 					initDirectory();
+					splitPane_VERTICAL.setDividerLocation(height);
 				}
 			}
 		});
@@ -838,10 +839,10 @@ public class Window {
 		consoleField = new ConsoleTextField() {
 
 			@Override
-			public void actionPerform() {
-				super.actionPerform();
-				executeCommand(consoleField.getText());
-				consoleField.setText("");
+			public void actionPerform(ActionEvent e) {
+				super.actionPerform(e);
+				executeCommand(e.getActionCommand());
+				consoleField.setSelectedIndex(-1);
 			}
 
 			@Override
@@ -849,7 +850,6 @@ public class Window {
 				super.actionStop();
 			}
 		};
-		consoleField.setColumns(10);
 		toolBar.add(consoleField);
 
 		JButton btnStart = new JButton(new ImageIcon(iconStartPath));
@@ -859,7 +859,9 @@ public class Window {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				consoleField.actionPerform();
+				consoleField.addList((String) consoleField.getEditor().getItem());
+				consoleField.listReset();
+				consoleField.getEditor().setItem("");
 			}
 		});
 		toolBar.add(btnStart);
@@ -1018,7 +1020,9 @@ public class Window {
 				if (file.createNewFile()) {
 					Model.setMainMethod(file);
 					openEditor(file);
+					int height = splitPane_VERTICAL.getDividerLocation();
 					initDirectory();
+					splitPane_VERTICAL.setDividerLocation(height);
 				} else {
 					JOptionPane.showMessageDialog(frame, "ファイルの作成に失敗しました。");
 				}
@@ -1130,7 +1134,10 @@ public class Window {
 						hBar.setValue(hBarMin);
 					}
 				}
+				int height = splitPane_VERTICAL.getDividerLocation();
 				initDirectory();
+				splitPane_VERTICAL.setDividerLocation(height);
+				consoleTextArea.setCaretPosition(consoleTextArea.getDocument().getLength());
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
